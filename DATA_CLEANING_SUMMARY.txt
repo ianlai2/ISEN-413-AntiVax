@@ -1,0 +1,25 @@
+
+Dataset Information:
+  - Total rows: 4095
+  - Total columns: 137
+  - Target variable: Y (0=Not vaccinated, 1=Vaccinated)
+
+Data Quality:
+  - Missing values: 0 (✓ Complete)
+  - Duplicate rows: 0
+  - Data types: All numeric (float/int)
+
+Target Distribution:
+  - Class 0: 954 (23.3%)
+  - Class 1: 3141 (76.7%)
+
+Feature Engineering:
+  - Original features: 133
+  - Missing indicator features: 3
+  - Total features: 136
+
+Files Generated:
+  1. fully_imputed_training_data.csv — Main dataset for modeling
+  2. feature_metadata.csv — Feature names, types, and indicator flags
+  3. feature_descriptions.csv — Original feature descriptions from row 2
+  4. feature_importance.png — Visualization of top 20 important features
