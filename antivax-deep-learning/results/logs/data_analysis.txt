@@ -1,0 +1,23 @@
+DATA ANALYSIS REPORT
+======================================================================
+
+Total Features: 136
+Binary Variables: 10
+Low Cardinality Variables: 122
+Missing Indicators: 3
+Redundant Features: 13
+
+Redundant Features to Remove:
+  - Q312_1
+  - Q312_2
+  - Q54_3
+  - Q64_1
+  - Q64_2
+  - Q64_3
+  - Q65_1
+  - Q66_3
+  - Q67_2
+  - Q67_3
+  - Q69_1
+  - Q69_2
+  - Q69_3

@@ -1,0 +1,42 @@
+# Deep Learning Configuration for Anti-Vax Prediction
+seed: 42
+
+# Data paths
+data:
+  training_data: "../fully_imputed_training_data.csv"
+  feature_metadata: "../feature_metadata.csv"
+  target_column: "Y"
+
+# Sampling for class imbalance
+sampling:
+  method: "none"  # Options: 'none', 'oversample', 'undersample', 'smote', 'smote_tomek', 'smote_enn'
+  k_neighbors: 5  # For SMOTE-based methods
+  k_neighbors_enn: 3  # For SMOTE+ENN
+  sampling_strategy: "auto"  # 'auto' = balance to majority/minority, 'minority' = balance to mean
+  random_state: 42
+  
+# Model architecture
+model:
+  hidden_layers: [128, 64, 32]
+  dropout_rate: 0.3
+  activation: "relu"
+  output_activation: "sigmoid"
+  
+# Training parameters
+training:
+  batch_size: 32
+  epochs: 100
+  learning_rate: 0.001
+  validation_split: 0.2
+  early_stopping_patience: 15
+  
+# Cross-validation
+cross_validation:
+  n_folds: 5
+  shuffle: true
+  
+# Paths
+paths:
+  models: "models/saved_models"
+  logs: "results/logs"
+  plots: "results/plots"
