@@ -78,6 +78,11 @@ Edit `config/config.yaml` to customize the model and training parameters:
 ```yaml
 seed: 42  # Random seed for reproducibility
 
+sampling:
+  method: "none"  # Options: 'none', 'oversample', 'undersample', 'smote', 'smote_tomek', 'smote_enn'
+  k_neighbors: 5  # For SMOTE-based methods
+  sampling_strategy: "auto"  # 'auto' or 'minority'
+
 model:
   hidden_layers: [128, 64, 32]  # Hidden layer sizes
   dropout_rate: 0.3              # Dropout rate (0.0-1.0)
@@ -99,6 +104,12 @@ cross_validation:
 - Step-by-step tuning workflow
 - Common issues and solutions
 - Empirical results and recommendations
+
+**⚖️ For class imbalance handling**, see [SAMPLING_GUIDE.md](SAMPLING_GUIDE.md) - a quick reference for:
+- 6 sampling methods (SMOTE, oversampling, undersampling, etc.)
+- When to use each method
+- Configuration examples
+- Performance comparison tool
 
 ## Usage
 
@@ -316,6 +327,18 @@ This section provides detailed guidance on tuning hyperparameters for optimal pe
 - **Features Removed**: Q312_1, Q312_2, Q54_3, Q64_1-3, Q65_1, Q66_3, Q67_2-3, Q69_1-3
 - **Effect**: Reduces dimensionality from 136 to 123 features
 - **Benefit**: Eliminates uninformative features, reduces model complexity
+
+#### **Class Imbalance Handling**
+- **Methods Available**: 6 sampling techniques
+- **Current Setting**: `none` (no sampling)
+- **Options**:
+  - `oversample`: Random oversampling of minority class
+  - `undersample`: Random undersampling of majority class
+  - `smote`: Synthetic Minority Over-sampling Technique
+  - `smote_tomek`: SMOTE + Tomek links cleaning
+  - `smote_enn`: SMOTE + Edited Nearest Neighbors
+- **When to Use**: If class distribution is imbalanced (one class >> other)
+- **Configuration**: Set in `config.yaml` under `sampling.method`
 
 ### Optimizer Configuration
 

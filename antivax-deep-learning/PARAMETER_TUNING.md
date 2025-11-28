@@ -824,6 +824,245 @@ preprocessor = Preprocessor(
 - Neural networks can learn ordinal relationships from continuous values
 - One-hot encoding would explode to 500+ features
 
+### Class Imbalance Handling
+
+**Overview**: Sampling techniques to address imbalanced class distributions.
+
+**Available Methods**:
+
+| Method | Type | Description | When to Use |
+|--------|------|-------------|-------------|
+| **None** | - | No sampling (current) | Balanced classes |
+| **Random Oversample** | Over | Duplicate minority samples | Quick fix, small datasets |
+| **Random Undersample** | Under | Remove majority samples | Large datasets, lose data acceptable |
+| **SMOTE** | Over | Generate synthetic samples | General purpose, recommended |
+| **SMOTE + Tomek** | Hybrid | SMOTE + remove borderline | Noisy boundaries |
+| **SMOTE + ENN** | Hybrid | SMOTE + remove outliers | Very noisy data |
+
+**Configuration**:
+```yaml
+sampling:
+  method: "smote"  # Choose method
+  k_neighbors: 5   # For SMOTE
+  k_neighbors_enn: 3  # For SMOTE+ENN
+  sampling_strategy: "auto"  # Balance strategy
+  random_state: 42
+```
+
+#### **Random Oversampling**
+
+**How It Works**:
+- Randomly duplicates minority class samples
+- Simple and fast
+- Risk of overfitting (exact duplicates)
+
+**Parameters**:
+- `sampling_strategy`: 'auto' (balance to majority) or 'minority' (balance to mean)
+
+**Example**:
+```
+Original: Class 0: 700, Class 1: 300
+After:    Class 0: 700, Class 1: 700
+Method:   400 minority samples randomly duplicated
+```
+
+**Pros**:
+- ✓ Very fast
+- ✓ No information loss
+- ✓ Easy to understand
+
+**Cons**:
+- ✗ Exact duplicates (overfitting risk)
+- ✗ No new information
+- ✗ Increased training time
+
+#### **Random Undersampling**
+
+**How It Works**:
+- Randomly removes majority class samples
+- Balances by reducing majority
+- Risk of losing important information
+
+**Parameters**:
+- `sampling_strategy`: 'auto' (balance to minority) or 'majority' (balance to mean)
+
+**Example**:
+```
+Original: Class 0: 700, Class 1: 300
+After:    Class 0: 300, Class 1: 300
+Method:   400 majority samples removed
+```
+
+**Pros**:
+- ✓ Very fast
+- ✓ Reduces training time
+- ✓ Reduces memory usage
+
+**Cons**:
+- ✗ Loses data (potentially important)
+- ✗ Not recommended for small datasets
+- ✗ May underfit
+
+#### **SMOTE** (Recommended)
+
+**Full Name**: Synthetic Minority Over-sampling Technique
+
+**How It Works**:
+1. For each minority sample, find k nearest minority neighbors
+2. Randomly select one neighbor
+3. Create synthetic sample by interpolating: `new = sample + α × (neighbor - sample)`
+4. α is random value between 0 and 1
+
+**Parameters**:
+- `k_neighbors`: Number of neighbors to consider (default: 5)
+- `sampling_strategy`: Target balance strategy
+
+**Example**:
+```
+Original: Class 0: 700, Class 1: 300
+After:    Class 0: 700, Class 1: 700
+Method:   400 synthetic minority samples generated
+```
+
+**Visual**:
+```
+Original minority samples: ● ● ●
+Synthetic samples:        ⊕ ⊕ (interpolated between originals)
+```
+
+**Pros**:
+- ✓ Generates new information (not duplicates)
+- ✓ Reduces overfitting risk
+- ✓ Works well for most datasets
+- ✓ Industry standard
+
+**Cons**:
+- ✗ Slower than random sampling
+- ✗ May create outliers
+- ✗ Requires tuning k_neighbors
+
+**Tuning k_neighbors**:
+```
+k=3:  More variation, potential noise
+k=5:  Balanced (recommended) ✓
+k=10: More conservative, smoother
+```
+
+#### **SMOTE + Tomek Links**
+
+**How It Works**:
+1. Apply SMOTE to oversample minority
+2. Find Tomek links (borderline sample pairs from different classes)
+3. Remove majority class samples in Tomek links
+
+**Tomek Link**: Two samples from different classes that are each other's nearest neighbors
+
+**Benefits**:
+- Cleaner decision boundary
+- Removes ambiguous samples
+- Better than SMOTE alone when classes overlap
+
+**Example**:
+```
+After SMOTE: Class 0: 700, Class 1: 700
+Find Tomek:  20 borderline pairs identified
+After:       Class 0: 680, Class 1: 700 (20 majority removed)
+```
+
+**Use When**:
+- Classes have overlapping boundaries
+- Want cleaner separation
+- Have noisy labels
+
+#### **SMOTE + ENN**
+
+**Full Name**: SMOTE + Edited Nearest Neighbors
+
+**How It Works**:
+1. Apply SMOTE to oversample minority
+2. For each sample, check k nearest neighbors
+3. Remove sample if its class ≠ majority class of neighbors
+
+**Benefits**:
+- Removes outliers and noise
+- More aggressive cleaning than Tomek
+- Better generalization
+
+**Parameters**:
+- `k_neighbors_smote`: Neighbors for SMOTE (default: 5)
+- `k_neighbors_enn`: Neighbors for ENN cleaning (default: 3)
+
+**Example**:
+```
+After SMOTE: Class 0: 700, Class 1: 700
+Apply ENN:   45 noisy samples identified
+After:       Class 0: 665, Class 1: 690 (45 removed from both)
+```
+
+**Use When**:
+- Data has significant noise
+- Want most aggressive cleaning
+- Generalization is priority
+
+#### **Comparison Table**
+
+| Method | Speed | Synthetic | Data Loss | Overfitting Risk | Best For |
+|--------|-------|-----------|-----------|------------------|----------|
+| None | - | - | - | Medium | Balanced data |
+| Oversample | ★★★★★ | ✗ | None | High | Quick tests |
+| Undersample | ★★★★★ | ✗ | High | Low | Large datasets |
+| SMOTE | ★★★★ | ✓ | None | Low | General use ✓ |
+| SMOTE+Tomek | ★★★ | ✓ | Minimal | Very Low | Noisy boundaries |
+| SMOTE+ENN | ★★ | ✓ | Some | Very Low | Very noisy data |
+
+#### **Decision Guide**
+
+```
+Is data balanced (40-60% split)?
+├─ Yes → Use method: 'none' ✓
+└─ No → Is imbalance severe (< 30% minority)?
+    ├─ Yes → Use SMOTE or SMOTE+ENN
+    └─ No → Mild imbalance
+        ├─ Large dataset (>5000) → Try SMOTE
+        └─ Small dataset → Try oversample first
+        
+Is data noisy?
+├─ Yes → Use SMOTE+ENN or SMOTE+Tomek
+└─ No → Use SMOTE ✓
+
+Do you have time constraints?
+├─ Yes → Use oversample (fastest)
+└─ No → Use SMOTE for best results ✓
+```
+
+#### **Testing Sampling Methods**
+
+**Comparison Script**:
+```bash
+python compare_sampling.py
+```
+
+This script:
+- Tests all 6 sampling methods
+- Trains models with each
+- Compares performance metrics
+- Generates comparison plots
+- Saves results to `results/logs/sampling_comparison.csv`
+
+**What to Look For**:
+- Higher accuracy/AUC/F1 than baseline
+- Improved recall on minority class
+- Balanced precision and recall
+- Training time acceptable
+
+**Empirical Guidelines**:
+```
+If recall improves but precision drops → Too much oversampling
+If both improve → Good sampling choice ✓
+If accuracy drops → Sampling introduced noise
+If training time 2x+ → Consider simpler method
+```
+
 ---
 
 ## Optimizer Settings
