@@ -1,6 +1,7 @@
 ---
 title: "Project 2"
 output: html_notebook
+author: "Iman Sebti & Ian Lai"
 ---
 READ ME:
 
@@ -335,6 +336,7 @@ train_pred_class <- ifelse(train_pred_class > 0.5, 1, 0)
 train_accuracy <- mean(train_pred == train_small$Y)
 
 cat("Training Accuracy:", round(train_accuracy, 4), "\n")
+
 
 
 
