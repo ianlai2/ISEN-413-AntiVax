@@ -2,17 +2,25 @@
 title: "Project 2"
 output: html_notebook
 ---
+READ ME:
+
+{r}
+#libraries required
+library(readr)
+library(tree)
+library(caret)
+library(randomForest)
+library(class)
 
 Load Data
 
-```{r}
+{r}
 library(readr)
 df_2 = read_csv("C:/Users/Isebt/OneDrive/Documents/ISEN 413 Project 2/Project 2/Training_data_csv.csv",show_col_types = FALSE)
-```
 
 Data Exploration & pre-processing
 
-```{r}
+{r}
 #After testing logistic and KNN models, I came back here to remove the 90% missing columns to see if we improve performance.
 
 df_2 <- subset(df_2, select = -c(Q54_5_TEXT, Q55_7_TEXT))  # remove text columns
@@ -61,11 +69,10 @@ test_scaled_2 <- scale(test_predictors_2, center = train_means, scale = train_sd
 train_set_2 <- data.frame(Y = train_response_2, train_scaled_2)
 test_set_2  <- data.frame(Y = test_response_2,  test_scaled_2)
 
-```
 
 11/27 - Trying to use rf for to identify most important variables
 
-```{r}
+{r}
 library(tree)
 library(randomForest)
 library(caret) #package for cross validation
@@ -74,7 +81,7 @@ library(caret) #package for cross validation
 train_set_2$Y <- as.factor(train_set_2$Y)
 test_set_2$Y  <- as.factor(test_set_2$Y)
 
-#set num =5 , 5-fold cross validation
+# 5-fold cross validation
 train_control <- trainControl(method = "cv", number = 5)
 
 
@@ -100,19 +107,12 @@ final_rf_tree <- randomForest(Y ~ ., data = train_set_2,
 
 
 pred_prob <- predict(final_rf_tree, newdata = test_set_2, type = "prob")[, "1"]
+pred_class <- ifelse(pred_prob > .5, 1, 0)
+accuracy <-mean(pred_class == test_set_2$Y)
 
-#optimize thresholds for max accuracy because of the class imbalance in data
-thresholds <- seq(0.1, 0.9, by = 0.01)
-accuracy <- sapply(thresholds, function(t) {
-  pred_class <- ifelse(pred_prob > t, 1, 0)
-  mean(pred_class == test_set_2$Y)
-})
 
-best_threshold <- thresholds[which.max(accuracy)]
-best_accuracy  <- max(accuracy)
 
-cat("Best threshold (rf):", best_threshold, "\n")
-cat("Best test set accuracy (rf):", best_accuracy, "\n")
+cat("Best test set accuracy (rf):", accuracy, "\n")
 
 #Get importance as a dataframe
 df_importance <- as.data.frame(importance(final_rf_tree))
@@ -126,28 +126,26 @@ cat
 #create train and test data using the top features only
 train_top <- train_set_2[, c("Y", top_features)]
 test_top  <- test_set_2[, c("Y", top_features)]
-```
 
-Lets reduce feature space even more by only considering predictors that make up 70% of importance
+Lets reduce feature space even more by only considering predictors that make up 90% of importance
 
-```{r}
+{r}
 
 df_importance <- df_importance[order(-df_importance$MeanDecreaseAccuracy), ] #sort by MDA highest to low
 #utilize cumalitive sum of predictors to try and create thresholds for preidcots containing x% of importance
 df_importance$cum_importance <- cumsum(df_importance$MeanDecreaseAccuracy) / sum(df_importance$MeanDecreaseAccuracy)
 
-#reduce top features to only most important predictors that make up 70 % of the importance and power of model
-top_features <- rownames(df_importance[df_importance$cum_importance <= .7, ])
+#reduce top features to only most important predictors that make up 90 % of the importance and power of model
+top_features <- rownames(df_importance[df_importance$cum_importance <= .9, ])
 length(top_features)  # check how many features remain
 
 #create new datasets with only the top 
 train_small <- train_set_2[, c("Y", top_features)]
 test_small  <- test_set_2[, c("Y", top_features)]
-```
 
 Logistic Regression:
 
-```{r}
+{r}
 #base Logistic regression, used to gauge if changes in data increase noise or decrease
 base_model_3 <- glm(Y ~ ., data = train_small, family = binomial)
 
@@ -174,6 +172,9 @@ y2_test <- as.numeric(as.character(test_small$Y))
 set.seed(1)
 cv_lasso_2 <- cv.glmnet(x2, y2, alpha = 1, family = "binomial")
 
+plot(cv_lasso_2)
+title("CV Error vs Log(Lambda)", line = 2.5)
+
 best_lambda_lasso_2 <- cv_lasso_2$lambda.min #get lambda to make the best LASSO model
 
 #tran the best model on all of the training data
@@ -181,27 +182,28 @@ lasso_model_2 <- glmnet(x2, y2, alpha = 1, lambda = best_lambda_lasso_2, family 
 
 # prediction probabilities on test set
 pred_prob <- predict(lasso_model_2, newx = x2_test, type = "response")[,1]
+pred_class <- ifelse(pred_prob > 0.5, 1, 0)
+error_lasso <- mean(pred_class != test_small$Y)
+accuracy_lasso <- 1 - error_lasso
 
-# Threshold tuning
-thresholds <- seq(0.1, 0.9, by = 0.01)
-accuracy <- sapply(thresholds, function(t) {
-  pred_class <- ifelse(pred_prob > t, 1, 0)
-  mean(pred_class == y2_test)
-})
+# confusion matrix 
+conf_mat <- confusionMatrix(factor(pred_class), factor(y2_test))
+print(conf_mat)
 
-#get best threshold and best accuracy obtained from that threshold
-best_threshold <- thresholds[which.max(accuracy)]
-best_accuracy  <- max(accuracy)
+# Training error 
+train_pred_prob <- predict(lasso_model_2, newx = x2, type = "response")[,1]
+train_pred_class <- ifelse(train_pred_prob > 0.5, 1, 0)
+train_error <- mean(train_pred_class != y2)
 
-cat("Best Threshold (LASSO) :", round(best_threshold, 4), "\n")
-cat("Best Accuracy (LASSO) :", round(best_accuracy, 4), "\n")
-```
+cat("Training Error (LASSO) :", round(train_error, 4), "\n")
 
-Best Logistic regression :0.8902256
+cat("Best test Accuracy (LASSO) :", round(accuracy_lasso, 4), "\n")
+
+Best Logistic regression :0.8842
 
 LDA & QDA
 
-```{r}
+{r}
 library(caret)
 #set to 10-fold cross validation
 ctrl <- trainControl(method = "cv", number = 10)
@@ -209,7 +211,7 @@ ctrl <- trainControl(method = "cv", number = 10)
 
 #LDA
 set.seed(1)
-#perform cross validation
+#perform cross validation for test error (no Lda parameteres)
 lda_cv <- train(
   Y ~ ., 
   data = train_small,
@@ -217,10 +219,19 @@ lda_cv <- train(
   trControl = ctrl
 )
 
+
 lda_pred <- predict(lda_cv, test_small)
 lda_acc <- mean(lda_pred == test_small$Y)
 
+conf_mat <- confusionMatrix(factor(lda_pred), factor(y2_test))
+print(conf_mat)
 cat("LDA Test Accuracy:", round(lda_acc, 4), "\n")
+
+#rain eror
+pred_train <- predict(lda_cv, newdata = train_small)
+train_accuracy <- mean(pred_train == train_small$Y)
+
+cat("LDA Training Accuracy:", round(train_accuracy, 4), "\n")
 
 
 #QDA
@@ -236,11 +247,10 @@ qda_pred <- predict(qda_cv, test_small)
 qda_acc <- mean(qda_pred == test_small$Y)
 
 cat("QDA Test Accuracy:", round(qda_acc, 4), "\n")
-```
 
 KNN
 
-```{r}
+{r}
 library(class)
 library(caret)
 
@@ -268,12 +278,11 @@ print(paste("Best k:", best_k))
 # Predict on test set with best knn model
 predictions <- predict(knn_model_2, newdata = x_test_2)
 accuracy <- mean(predictions == y_test_2)
-print(paste("Test set accuracy:", round(accuracy, 4)))
-```
+print(paste("Test set accuracy (knn):", round(accuracy, 4)))
 
 Tree Based Methods
 
-```{r}
+{r}
 #Random forest retrain
 library(tree)
 library(randomForest)
@@ -283,11 +292,11 @@ library(caret) #package for cross validation
 train_small$Y <- as.factor(train_small$Y)
 test_small$Y  <- as.factor(test_small$Y)
 
-#set num =5 , 5-fold cross validation
+#5-fold cross validation
 train_control <- trainControl(method = "cv", number = 5)
 
 
-tunegrid <- expand.grid(.mtry = 1:10)  # values to try for mtry- try up to 50 at once
+tunegrid <- expand.grid(.mtry = 1:20)  # values to try for mtry- try up to 50 at once
 
 #perform cross validation
 set.seed(1)
@@ -296,6 +305,8 @@ rf_cv <- train(Y ~ ., data = train_small,
                trControl = train_control,
                tuneGrid = tunegrid,
                ntree = 100)
+plot(rf_cv)
+
 
 
 best_idx <- which.max(rf_cv$results$Accuracy) #idx of tree with best accuracy
@@ -306,17 +317,24 @@ final_rf_tree <- randomForest(Y ~ ., data = train_small,mtry = best_mtry,ntree =
 
 
 pred_prob <- predict(final_rf_tree, newdata = test_small, type = "prob")[, "1"]
+pred_class <- ifelse(pred_prob > 0.5, 1, 0)
+error_rf <- mean(pred_class != test_small$Y)
+accuracy_rf <- 1 - error_rf
 
-#optimize thresholds for max accuracy because of the class imbalance in data
-thresholds <- seq(0.1, 0.9, by = 0.01)
-accuracy <- sapply(thresholds, function(t) {
-  pred_class <- ifelse(pred_prob > t, 1, 0)
-  mean(pred_class == test_set_2$Y)
-})
+cat("Best test set accuracy (rf):", accuracy_rf, "\n")
 
-best_threshold <- thresholds[which.max(accuracy)]
-best_accuracy  <- max(accuracy)
+#confusion marix
+conf_mat <- confusionMatrix(factor(pred_class), factor(test_small$Y))
+print(conf_mat)
 
-cat("Best threshold (rf):", best_threshold, "\n")
-cat("Best test set accuracy (rf):", best_accuracy, "\n")
-```
+
+#train error
+train_pred <- predict(final_rf_tree, newdata = train_small)
+train_pred_class <- ifelse(train_pred_class > 0.5, 1, 0)
+
+train_accuracy <- mean(train_pred == train_small$Y)
+
+cat("Training Accuracy:", round(train_accuracy, 4), "\n")
+
+
+
