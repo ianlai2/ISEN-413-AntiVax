@@ -1,0 +1,342 @@
+---
+title: "Project 2"
+output: html_notebook
+author: "Iman Sebti & Ian Lai"
+---
+READ ME:
+
+{r}
+#libraries required
+library(readr)
+library(tree)
+library(caret)
+library(randomForest)
+library(class)
+
+Load Data
+
+{r}
+library(readr)
+df_2 = read_csv("C:/Users/Isebt/OneDrive/Documents/ISEN 413 Project 2/Project 2/Training_data_csv.csv",show_col_types = FALSE)
+
+Data Exploration & pre-processing
+
+{r}
+#After testing logistic and KNN models, I came back here to remove the 90% missing columns to see if we improve performance.
+
+df_2 <- subset(df_2, select = -c(Q54_5_TEXT, Q55_7_TEXT))  # remove text columns
+
+# col with more than 80% missing
+high_missing_cols <- names(df_2)[colSums(is.na(df_2)) / nrow(df_2) > 0.9]
+
+# Remove these
+if(length(high_missing_cols) > 0){
+  df_2 <- df_2[, !(names(df_2) %in% high_missing_cols)]
+}
+
+#replace missing with median value of column
+df_2[] <- lapply(df_2, function(x){
+  x[is.na(x)] <- median(x, na.rm = TRUE)
+  x
+})
+
+
+zero_variance <- names(df_2)[sapply(df_2, function(x) sd(x) == 0)]
+df_2 <- df_2[, !names(df_2) %in% zero_variance]
+
+#We need to split before scaling for best practice
+set.seed(1)
+train_index_2 <- sample(1:nrow(df_2), size = 0.85 * nrow(df_2))
+train_set_2 <- df_2[train_index_2, ]
+test_set_2  <- df_2[-train_index_2, ]
+
+train_predictors_2 <- subset(train_set_2, select = -Y)
+train_response_2   <- train_set_2$Y
+
+test_predictors_2 <- subset(test_set_2 , select = -Y)
+test_response_2 <- test_set_2$Y
+
+# Compute scaling parameters only from training data
+train_means <- apply(train_predictors_2, 2, mean)
+train_sds   <- apply(train_predictors_2, 2, sd)
+
+# Scale training data
+train_scaled_2 <- scale(train_predictors_2, center = train_means, scale = train_sds)
+
+# Scale test data using training means/sds
+test_scaled_2 <- scale(test_predictors_2, center = train_means, scale = train_sds)
+
+# final data frames to train models
+train_set_2 <- data.frame(Y = train_response_2, train_scaled_2)
+test_set_2  <- data.frame(Y = test_response_2,  test_scaled_2)
+
+
+11/27 - Trying to use rf for to identify most important variables
+
+{r}
+library(tree)
+library(randomForest)
+library(caret) #package for cross validation
+
+#resonse must be a factor so tree will be for classification
+train_set_2$Y <- as.factor(train_set_2$Y)
+test_set_2$Y  <- as.factor(test_set_2$Y)
+
+# 5-fold cross validation
+train_control <- trainControl(method = "cv", number = 5)
+
+
+tunegrid <- expand.grid(.mtry = 2:50)  # values to try for mtry- try up to 50 at once
+
+#perform cross validation
+set.seed(1)
+rf_cv <- train(Y ~ ., data = train_set_2,
+               method = "rf",
+               trControl = train_control,
+               tuneGrid = tunegrid,
+               ntree = 100)
+
+
+best_idx <- which.max(rf_cv$results$Accuracy) #idx of tree with best accuracy
+best_mtry <- rf_cv$results$mtry[best_idx] #mtry parameter value of tree with best accuracy
+
+#best random forest tree
+final_rf_tree <- randomForest(Y ~ ., data = train_set_2,
+                              mtry = best_mtry,
+                              ntree = 100,
+                              importance = TRUE)
+
+
+pred_prob <- predict(final_rf_tree, newdata = test_set_2, type = "prob")[, "1"]
+pred_class <- ifelse(pred_prob > .5, 1, 0)
+accuracy <-mean(pred_class == test_set_2$Y)
+
+
+
+cat("Best test set accuracy (rf):", accuracy, "\n")
+
+#Get importance as a dataframe
+df_importance <- as.data.frame(importance(final_rf_tree))
+df_importance$Feature <- rownames(df_importance)
+
+# if MDA is negative, the model will perform better without that predictor
+top_features <- df_importance$Feature[df_importance$MeanDecreaseAccuracy > 0] # Keep only positive MDA vals
+
+cat("Number of top features:", length(top_features), "\n")
+cat
+#create train and test data using the top features only
+train_top <- train_set_2[, c("Y", top_features)]
+test_top  <- test_set_2[, c("Y", top_features)]
+
+Lets reduce feature space even more by only considering predictors that make up 90% of importance
+
+{r}
+
+df_importance <- df_importance[order(-df_importance$MeanDecreaseAccuracy), ] #sort by MDA highest to low
+#utilize cumalitive sum of predictors to try and create thresholds for preidcots containing x% of importance
+df_importance$cum_importance <- cumsum(df_importance$MeanDecreaseAccuracy) / sum(df_importance$MeanDecreaseAccuracy)
+
+#reduce top features to only most important predictors that make up 90 % of the importance and power of model
+top_features <- rownames(df_importance[df_importance$cum_importance <= .9, ])
+length(top_features)  # check how many features remain
+
+#create new datasets with only the top 
+train_small <- train_set_2[, c("Y", top_features)]
+test_small  <- test_set_2[, c("Y", top_features)]
+
+Logistic Regression:
+
+{r}
+#base Logistic regression, used to gauge if changes in data increase noise or decrease
+base_model_3 <- glm(Y ~ ., data = train_small, family = binomial)
+
+pred_2 <- predict(base_model_3, newdata = test_small, type = "response")
+guess_2 <- ifelse(pred_2 > 0.50, 1, 0)
+
+error_2 <- mean(guess_2 != test_small$Y)
+accuracy_2 <- 1 - error_2
+
+cat("Best Accuracy (baseline) :", round(accuracy_2, 4), "\n")
+
+#LASSO
+
+library(glmnet)
+
+#create matrices for train and test
+x2 <- model.matrix(Y ~ ., train_small)[, -1]
+y2 <- as.numeric(as.character(train_small$Y))  
+
+x2_test <- model.matrix(Y ~ ., test_small)[, -1]
+y2_test <- as.numeric(as.character(test_small$Y))
+
+# CV LASSO
+set.seed(1)
+cv_lasso_2 <- cv.glmnet(x2, y2, alpha = 1, family = "binomial")
+
+plot(cv_lasso_2)
+title("CV Error vs Log(Lambda)", line = 2.5)
+
+best_lambda_lasso_2 <- cv_lasso_2$lambda.min #get lambda to make the best LASSO model
+
+#tran the best model on all of the training data
+lasso_model_2 <- glmnet(x2, y2, alpha = 1, lambda = best_lambda_lasso_2, family = "binomial")
+
+# prediction probabilities on test set
+pred_prob <- predict(lasso_model_2, newx = x2_test, type = "response")[,1]
+pred_class <- ifelse(pred_prob > 0.5, 1, 0)
+error_lasso <- mean(pred_class != test_small$Y)
+accuracy_lasso <- 1 - error_lasso
+
+# confusion matrix 
+conf_mat <- confusionMatrix(factor(pred_class), factor(y2_test))
+print(conf_mat)
+
+# Training error 
+train_pred_prob <- predict(lasso_model_2, newx = x2, type = "response")[,1]
+train_pred_class <- ifelse(train_pred_prob > 0.5, 1, 0)
+train_error <- mean(train_pred_class != y2)
+
+cat("Training Error (LASSO) :", round(train_error, 4), "\n")
+
+cat("Best test Accuracy (LASSO) :", round(accuracy_lasso, 4), "\n")
+
+Best Logistic regression :0.8842
+
+LDA & QDA
+
+{r}
+library(caret)
+#set to 10-fold cross validation
+ctrl <- trainControl(method = "cv", number = 10)
+
+
+#LDA
+set.seed(1)
+#perform cross validation for test error (no Lda parameteres)
+lda_cv <- train(
+  Y ~ ., 
+  data = train_small,
+  method = "lda",
+  trControl = ctrl
+)
+
+
+lda_pred <- predict(lda_cv, test_small)
+lda_acc <- mean(lda_pred == test_small$Y)
+
+conf_mat <- confusionMatrix(factor(lda_pred), factor(y2_test))
+print(conf_mat)
+cat("LDA Test Accuracy:", round(lda_acc, 4), "\n")
+
+#rain eror
+pred_train <- predict(lda_cv, newdata = train_small)
+train_accuracy <- mean(pred_train == train_small$Y)
+
+cat("LDA Training Accuracy:", round(train_accuracy, 4), "\n")
+
+
+#QDA
+set.seed(1)
+qda_cv <- train(
+  Y ~ ., 
+  data = train_small,
+  method = "qda",
+  trControl = ctrl
+)
+
+qda_pred <- predict(qda_cv, test_small)
+qda_acc <- mean(qda_pred == test_small$Y)
+
+cat("QDA Test Accuracy:", round(qda_acc, 4), "\n")
+
+KNN
+
+{r}
+library(class)
+library(caret)
+
+# Split features and response 
+x_train_2 <- subset(train_small, select = -Y)
+y_train_2 <- as.factor(train_small$Y)
+x_test_2  <- subset(test_small, select = -Y)
+y_test_2  <- as.factor(test_small$Y)
+
+# 10-fold CV to tune k param , try k vals between 1-20
+cv_2 <- trainControl(method = "cv", number = 10)
+set.seed(1)
+knn_model_2 <- train(
+  x = x_train_2,
+  y = y_train_2,
+  method = "knn",
+  tuneGrid = data.frame(k = 1:20),
+  trControl = cv_2
+)
+
+# get best K
+best_k <- knn_model_2$bestTune$k
+print(paste("Best k:", best_k))
+
+# Predict on test set with best knn model
+predictions <- predict(knn_model_2, newdata = x_test_2)
+accuracy <- mean(predictions == y_test_2)
+print(paste("Test set accuracy (knn):", round(accuracy, 4)))
+
+Tree Based Methods
+
+{r}
+#Random forest retrain
+library(tree)
+library(randomForest)
+library(caret) #package for cross validation
+
+#resonse must be a factor so tree will be for classification
+train_small$Y <- as.factor(train_small$Y)
+test_small$Y  <- as.factor(test_small$Y)
+
+#5-fold cross validation
+train_control <- trainControl(method = "cv", number = 5)
+
+
+tunegrid <- expand.grid(.mtry = 1:20)  # values to try for mtry- try up to 50 at once
+
+#perform cross validation
+set.seed(1)
+rf_cv <- train(Y ~ ., data = train_small,
+               method = "rf",
+               trControl = train_control,
+               tuneGrid = tunegrid,
+               ntree = 100)
+plot(rf_cv)
+
+
+
+best_idx <- which.max(rf_cv$results$Accuracy) #idx of tree with best accuracy
+best_mtry <- rf_cv$results$mtry[best_idx] #mtry parameter value of tree with best accuracy
+
+#best random forest tree
+final_rf_tree <- randomForest(Y ~ ., data = train_small,mtry = best_mtry,ntree = 500, ,importance = TRUE)
+
+
+pred_prob <- predict(final_rf_tree, newdata = test_small, type = "prob")[, "1"]
+pred_class <- ifelse(pred_prob > 0.5, 1, 0)
+error_rf <- mean(pred_class != test_small$Y)
+accuracy_rf <- 1 - error_rf
+
+cat("Best test set accuracy (rf):", accuracy_rf, "\n")
+
+#confusion marix
+conf_mat <- confusionMatrix(factor(pred_class), factor(test_small$Y))
+print(conf_mat)
+
+
+#train error
+train_pred <- predict(final_rf_tree, newdata = train_small)
+train_pred_class <- ifelse(train_pred_class > 0.5, 1, 0)
+
+train_accuracy <- mean(train_pred == train_small$Y)
+
+cat("Training Accuracy:", round(train_accuracy, 4), "\n")
+
+
+
+
