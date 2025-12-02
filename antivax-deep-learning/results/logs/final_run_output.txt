@@ -1,0 +1,34 @@
+Final Training Pipeline Output (2025-11-29)
+
+Model Architecture:
+- Hidden layers: [256, 109, 16]
+- Activation: relu (hidden), sigmoid (output)
+- Dropout: 0.1 per hidden layer
+- Optimizer: adamw
+- Learning rate: 1e-4 (ReduceLROnPlateau enabled)
+- Batch size: 32
+- Epochs: up to 100 (early stopping restored best at epoch 33 for final model)
+- Input features: 123 (after removing 13 constant features; SMOTE balancing applied)
+- Total params: 61,534
+
+Cross-Validation (5-fold):
+- Accuracy mean: 0.9226 (std 0.0117)
+- Misclassification error mean: 0.0774 (std 0.0117)
+- Precision mean: 0.9392
+- Recall mean: 0.9037
+- F1 mean: 0.9211
+- AUC mean: 0.9697
+
+Final Test Set Performance:
+- Accuracy: 0.8584
+- Misclassification Error: 0.1416
+- Mislabeled Points: 116/819
+- Precision: 0.9103
+- Recall: 0.9045
+- F1 Score: 0.9073
+- AUC: 0.9097
+
+Artifacts:
+- Model: models/saved_models/best_model.keras
+- Logs: results/logs/cv_results.json
+- Plots: results/plots/confusion_matrix.png, roc_curve.png, training_history.png, cv_results.png, cv_vs_test.png

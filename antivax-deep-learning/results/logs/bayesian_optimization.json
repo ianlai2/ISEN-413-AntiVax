@@ -1,0 +1,24 @@
+{
+  "best_params": {
+    "batch_size": 32,
+    "epochs": 100,
+    "model__dropout_rate": 0.1,
+    "model__hidden_layer_1": 256,
+    "model__hidden_layer_2": 109,
+    "model__hidden_layer_3": 16,
+    "model__learning_rate": 0.0001,
+    "model__optimizer": "adamw"
+  },
+  "best_score": -0.0856406670416369,
+  "optimization_time_minutes": 20.561530166666667,
+  "n_iterations": 30,
+  "cv_folds": 5,
+  "timestamp": "2025-11-29 16:52:08",
+  "top_5_scores": [
+    -0.0856406670416369,
+    -0.08770984398198116,
+    -0.08834564654495336,
+    -0.088982082503585,
+    -0.08946143633866903
+  ]
+}

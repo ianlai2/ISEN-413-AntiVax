@@ -9,24 +9,40 @@ data:
 
 # Sampling for class imbalance
 sampling:
-  method: "none"  # Options: 'none', 'oversample', 'undersample', 'smote', 'smote_tomek', 'smote_enn'
+  method: "smote"  # Options: 'none', 'oversample', 'undersample', 'smote', 'smote_tomek', 'smote_enn'
   k_neighbors: 5  # For SMOTE-based methods
   k_neighbors_enn: 3  # For SMOTE+ENN
   sampling_strategy: "auto"  # 'auto' = balance to majority/minority, 'minority' = balance to mean
   random_state: 42
+
+# Feature engineering
+feature_engineering:
+  enable: true  # Set to true to enable feature engineering
+  domain_features: true  # Create survey question group aggregations
+  statistical_features: true  # Create statistical summaries
+  interaction_features: true  # Create feature interactions
+  count_features: true  # Create count-based features
+  use_selected_features: true  # Use only selected features from feature_selection.json
+  selected_features_file: "results/logs/feature_selection.json"  # Path to selected features
+  
+# Feature selection controls for main pipeline
+feature_selection:
+  enabled: true         # Toggle feature selection step in main.py
+  top_k: 50             # Top-K per method before consensus
+  cv_folds: 5           # CV folds used inside RFECV
   
 # Model architecture
 model:
-  hidden_layers: [128, 64, 32]
-  dropout_rate: 0.3
-  activation: "relu"
+  hidden_layers: [256, 109, 16]
+  dropout_rate: 0.1
+  activation: "relu" 
   output_activation: "sigmoid"
   
 # Training parameters
 training:
   batch_size: 32
   epochs: 100
-  learning_rate: 0.001
+  learning_rate: 0.0001
   validation_split: 0.2
   early_stopping_patience: 15
   
@@ -34,6 +50,13 @@ training:
 cross_validation:
   n_folds: 5
   shuffle: true
+  
+# Bayesian optimization controls for main pipeline
+bayesian_optimization:
+  enabled: true         # Set true to run BO inside main.py
+  n_iter: 5000            # Iterations for BayesSearchCV (increase for thorough search)
+  cv_folds: 5           # CV folds for BO
+  n_jobs: -1             # Parallel jobs; use -1 to leverage all cores
   
 # Paths
 paths:

@@ -20,7 +20,8 @@ class AntiVaxNN:
         dropout_rate: float = 0.3,
         activation: str = 'relu',
         output_activation: str = 'sigmoid',
-        learning_rate: float = 0.001
+        learning_rate: float = 0.001,
+        optimizer: str = 'adam'
     ):
         """
         Initialize neural network.
@@ -32,6 +33,7 @@ class AntiVaxNN:
             activation: Activation function for hidden layers
             output_activation: Activation function for output layer
             learning_rate: Learning rate for optimizer
+            optimizer: Optimizer name (e.g., 'adam', 'rmsprop', 'sgd')
         """
         self.input_dim = input_dim
         self.hidden_layers = hidden_layers
@@ -39,6 +41,7 @@ class AntiVaxNN:
         self.activation = activation
         self.output_activation = output_activation
         self.learning_rate = learning_rate
+        self.optimizer = optimizer
         self.model = None
         
     def build(self) -> keras.Model:
@@ -75,8 +78,22 @@ class AntiVaxNN:
         ))
         
         # Compile model
+        # Resolve optimizer by name and apply learning rate
+        opt = keras.optimizers.get(self.optimizer)
+        if hasattr(opt, 'learning_rate'):
+            opt.learning_rate = self.learning_rate
+        else:
+            # Fallback: reconstruct optimizer with learning rate when possible
+            try:
+                opt = keras.optimizers.get({
+                    'class_name': self.optimizer,
+                    'config': {'learning_rate': self.learning_rate}
+                })
+            except Exception:
+                opt = keras.optimizers.Adam(learning_rate=self.learning_rate)
+
         model.compile(
-            optimizer=keras.optimizers.Adam(learning_rate=self.learning_rate),
+            optimizer=opt,
             loss='binary_crossentropy',
             metrics=[
                 'accuracy',

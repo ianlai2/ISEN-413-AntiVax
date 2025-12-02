@@ -7,6 +7,7 @@ from sklearn.preprocessing import StandardScaler
 from sklearn.model_selection import train_test_split
 from typing import Tuple, Optional, List
 from .sampling import get_sampler, BaseSampler
+from .feature_engineering import FeatureEngineer
 
 
 class Preprocessor:
@@ -19,7 +20,8 @@ class Preprocessor:
         scale_features: bool = True,
         remove_constant_features: bool = True,
         remove_redundant_features: bool = True,
-        sampler: Optional[BaseSampler] = None
+        sampler: Optional[BaseSampler] = None,
+        feature_engineer: Optional[FeatureEngineer] = None
     ):
         """
         Initialize Preprocessor.
@@ -29,11 +31,13 @@ class Preprocessor:
             remove_constant_features: Whether to remove zero-variance features
             remove_redundant_features: Whether to remove redundant predictors
             sampler: Sampling method for handling class imbalance (optional)
+            feature_engineer: Feature engineering transformer (optional)
         """
         self.scale_features = scale_features
         self.remove_constant_features = remove_constant_features
         self.remove_redundant_features = remove_redundant_features
         self.sampler = sampler
+        self.feature_engineer = feature_engineer
         self.scaler = StandardScaler() if scale_features else None
         self.is_fitted = False
         self.features_to_remove = []
@@ -121,6 +125,10 @@ class Preprocessor:
         Returns:
             Self for chaining
         """
+        # Apply feature engineering first (before removing redundant features)
+        if self.feature_engineer is not None:
+            X = self.feature_engineer.fit_transform(X)
+        
         # Identify redundant features
         self.features_to_remove = self._identify_redundant_features(X)
         
@@ -143,6 +151,10 @@ class Preprocessor:
         Returns:
             Transformed feature array
         """
+        # Apply feature engineering first
+        if self.feature_engineer is not None:
+            X = self.feature_engineer.transform(X)
+        
         # Remove redundant features
         X_cleaned = self._remove_features(X)
         
@@ -162,6 +174,10 @@ class Preprocessor:
         Returns:
             Transformed feature array
         """
+        # Apply feature engineering first
+        if self.feature_engineer is not None:
+            X = self.feature_engineer.fit_transform(X)
+        
         # Identify redundant features
         self.features_to_remove = self._identify_redundant_features(X)
         
