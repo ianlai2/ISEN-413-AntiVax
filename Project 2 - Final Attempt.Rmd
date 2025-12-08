@@ -3,25 +3,28 @@ title: "Project 2"
 output: html_notebook
 author: "Iman Sebti & Ian Lai"
 ---
+
 READ ME:
 
-{r}
+```{r}
 #libraries required
 library(readr)
 library(tree)
 library(caret)
 library(randomForest)
 library(class)
+```
 
 Load Data
 
-{r}
+```{r}
 library(readr)
 df_2 = read_csv("C:/Users/Isebt/OneDrive/Documents/ISEN 413 Project 2/Project 2/Training_data_csv.csv",show_col_types = FALSE)
+```
 
 Data Exploration & pre-processing
 
-{r}
+```{r}
 #After testing logistic and KNN models, I came back here to remove the 90% missing columns to see if we improve performance.
 
 df_2 <- subset(df_2, select = -c(Q54_5_TEXT, Q55_7_TEXT))  # remove text columns
@@ -70,10 +73,11 @@ test_scaled_2 <- scale(test_predictors_2, center = train_means, scale = train_sd
 train_set_2 <- data.frame(Y = train_response_2, train_scaled_2)
 test_set_2  <- data.frame(Y = test_response_2,  test_scaled_2)
 
+```
 
 11/27 - Trying to use rf for to identify most important variables
 
-{r}
+```{r}
 library(tree)
 library(randomForest)
 library(caret) #package for cross validation
@@ -127,10 +131,11 @@ cat
 #create train and test data using the top features only
 train_top <- train_set_2[, c("Y", top_features)]
 test_top  <- test_set_2[, c("Y", top_features)]
+```
 
 Lets reduce feature space even more by only considering predictors that make up 90% of importance
 
-{r}
+```{r}
 
 df_importance <- df_importance[order(-df_importance$MeanDecreaseAccuracy), ] #sort by MDA highest to low
 #utilize cumalitive sum of predictors to try and create thresholds for preidcots containing x% of importance
@@ -143,10 +148,11 @@ length(top_features)  # check how many features remain
 #create new datasets with only the top 
 train_small <- train_set_2[, c("Y", top_features)]
 test_small  <- test_set_2[, c("Y", top_features)]
+```
 
 Logistic Regression:
 
-{r}
+```{r}
 #base Logistic regression, used to gauge if changes in data increase noise or decrease
 base_model_3 <- glm(Y ~ ., data = train_small, family = binomial)
 
@@ -199,12 +205,13 @@ train_error <- mean(train_pred_class != y2)
 cat("Training Error (LASSO) :", round(train_error, 4), "\n")
 
 cat("Best test Accuracy (LASSO) :", round(accuracy_lasso, 4), "\n")
+```
 
 Best Logistic regression :0.8842
 
 LDA & QDA
 
-{r}
+```{r}
 library(caret)
 #set to 10-fold cross validation
 ctrl <- trainControl(method = "cv", number = 10)
@@ -248,10 +255,11 @@ qda_pred <- predict(qda_cv, test_small)
 qda_acc <- mean(qda_pred == test_small$Y)
 
 cat("QDA Test Accuracy:", round(qda_acc, 4), "\n")
+```
 
 KNN
 
-{r}
+```{r}
 library(class)
 library(caret)
 
@@ -280,10 +288,11 @@ print(paste("Best k:", best_k))
 predictions <- predict(knn_model_2, newdata = x_test_2)
 accuracy <- mean(predictions == y_test_2)
 print(paste("Test set accuracy (knn):", round(accuracy, 4)))
+```
 
 Tree Based Methods
 
-{r}
+```{r}
 #Random forest retrain
 library(tree)
 library(randomForest)
@@ -336,7 +345,4 @@ train_pred_class <- ifelse(train_pred_class > 0.5, 1, 0)
 train_accuracy <- mean(train_pred == train_small$Y)
 
 cat("Training Accuracy:", round(train_accuracy, 4), "\n")
-
-
-
-
+```
